@@ -211,9 +211,10 @@ CREATE TABLE IF NOT EXISTS questions (
 -- 2. Match Sessions Table
 CREATE TABLE IF NOT EXISTS matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  access_code VARCHAR(10) UNIQUE NOT NULL,
+  room_code VARCHAR(20) UNIQUE,
+  access_code VARCHAR(20),
   status VARCHAR(30) DEFAULT 'lobby',
-  current_round INT DEFAULT 1,
+  current_round INT DEFAULT 0,
   max_rounds INT DEFAULT 3,
   time_limit_sec INT DEFAULT 15,
   current_question_id UUID REFERENCES questions(id),
@@ -225,7 +226,9 @@ CREATE TABLE IF NOT EXISTS matches (
 CREATE TABLE IF NOT EXISTS match_players (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
-  nickname VARCHAR(50) NOT NULL,
+  display_name VARCHAR(50),
+  nickname VARCHAR(50),
+  device_token VARCHAR(100),
   avatar VARCHAR(50) DEFAULT '⚡',
   score INT DEFAULT 0,
   streak INT DEFAULT 0,
@@ -239,9 +242,11 @@ CREATE TABLE IF NOT EXISTS match_players (
 CREATE TABLE IF NOT EXISTS match_round_questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES match_players(id) ON DELETE CASCADE,
   round INT NOT NULL,
   question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
-  order_index INT NOT NULL
+  position INT,
+  order_index INT
 );
 
 -- 5. Match Answers Submission Table
@@ -250,6 +255,7 @@ CREATE TABLE IF NOT EXISTS match_answers (
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
   player_id UUID REFERENCES match_players(id) ON DELETE CASCADE,
   question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+  round INT,
   selected_option TEXT NOT NULL,
   response_time_ms INT NOT NULL,
   is_correct BOOLEAN NOT NULL,
@@ -258,21 +264,10 @@ CREATE TABLE IF NOT EXISTS match_answers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Supabase Realtime safely for instant synchronization
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'matches') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE matches;
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_players') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE match_players;
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_answers') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE match_answers;
-  END IF;
-END $$;
+-- Enable Supabase Realtime for instant synchronization
+ALTER PUBLICATION supabase_realtime ADD TABLE matches;
+ALTER PUBLICATION supabase_realtime ADD TABLE match_players;
+ALTER PUBLICATION supabase_realtime ADD TABLE match_answers;
 ```
 
 ---
