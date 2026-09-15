@@ -44,9 +44,7 @@ export default function PlayerView() {
 
   // 1. Initialize Device Token & Server Clock Sync
   useEffect(() => {
-    syncServerClock().then((offset) => {
-      console.log('Device clock vs server clock offset (ms):', offset);
-    });
+    syncServerClock();
 
     let token = localStorage.getItem('arena_device_token');
     if (!token) {

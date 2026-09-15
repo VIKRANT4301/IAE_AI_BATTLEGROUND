@@ -98,9 +98,7 @@ export default function MatchConsoleView() {
 
   // 1. Fetch current active match on mount & sync server clock
   const fetchActiveMatch = async () => {
-    syncServerClock().then((offset) => {
-      console.log('Device clock vs server clock offset (ms):', offset);
-    });
+    syncServerClock();
 
     setLoading(true);
     try {

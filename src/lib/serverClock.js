@@ -46,7 +46,6 @@ export const syncServerClock = async () => {
       const serverTimeMs = new Date(dateHeader).getTime() + roundTripMs;
       globalClockOffsetMs = Math.round(serverTimeMs - end);
       isSynced = true;
-      console.log('⚡ Device clock vs server clock offset (ms):', globalClockOffsetMs);
     }
   } catch (err) {
     console.warn('⚠️ Server clock sync error:', err);

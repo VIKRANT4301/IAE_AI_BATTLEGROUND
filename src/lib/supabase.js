@@ -21,7 +21,6 @@ const isValidKey = (key) => {
 const supabaseUrl = isValidUrl(envUrl) ? envUrl : defaultUrl;
 const supabaseAnonKey = isValidKey(envKey) ? envKey : defaultKey;
 
-console.log('⚡ Supabase Connected:', supabaseUrl);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

@@ -185,7 +185,6 @@ class AudioManager {
             window.speechSynthesis.resume();
           }
           window.speechSynthesis.speak(utterance);
-          console.log('🔊 SpeechSynthesis Speaking:', text);
         } catch (e) {
           console.warn('SpeechSynthesis speak error:', e);
         }
