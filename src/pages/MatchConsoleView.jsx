@@ -569,11 +569,13 @@ export default function MatchConsoleView() {
 
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+      // Send both room_code and access_code to satisfy any NOT NULL schema constraints
       let { data, error } = await supabase
         .from('matches')
         .insert([
           {
             room_code: roomCode,
+            access_code: roomCode,
             status: 'lobby',
             current_round: 0
           }
@@ -582,22 +584,26 @@ export default function MatchConsoleView() {
         .single();
 
       if (error) {
-        console.warn('Primary insert failed, attempting fallback insert:', error.message);
-        const fallbackRes = await supabase
+        console.warn('Primary insert failed, attempting fallback inserts:', error.message);
+        const fb1 = await supabase
           .from('matches')
-          .insert([
-            {
-              access_code: roomCode,
-              status: 'lobby',
-              current_round: 0
-            }
-          ])
+          .insert([{ access_code: roomCode, status: 'lobby', current_round: 0 }])
           .select()
           .single();
 
-        if (fallbackRes.data) {
-          data = { ...fallbackRes.data, room_code: fallbackRes.data.access_code || roomCode };
+        if (fb1.data) {
+          data = { ...fb1.data, room_code: fb1.data.access_code || roomCode };
           error = null;
+        } else {
+          const fb2 = await supabase
+            .from('matches')
+            .insert([{ room_code: roomCode, status: 'lobby', current_round: 0 }])
+            .select()
+            .single();
+          if (fb2.data) {
+            data = fb2.data;
+            error = null;
+          }
         }
       }
 

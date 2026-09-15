@@ -434,6 +434,7 @@ export default function PlayerView() {
           {
             match_id: match.id,
             display_name: cleanName,
+            nickname: cleanName,
             device_token: deviceToken
           }
         ])
