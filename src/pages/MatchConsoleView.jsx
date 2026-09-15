@@ -741,21 +741,41 @@ export default function MatchConsoleView() {
         current_round: roundNum
       };
 
+      const nowIso = new Date().toISOString();
       if (isStarting) {
-        updatePayload.round_started_at = new Date().toISOString();
+        updatePayload.round_started_at = nowIso;
+        updatePayload.question_start_time = nowIso;
       }
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('matches')
         .update(updatePayload)
         .eq('id', match.id)
         .select()
         .single();
 
+      if (error) {
+        console.warn('Primary update failed, attempting fallback update:', error.message);
+        const fbRes = await supabase
+          .from('matches')
+          .update({
+            status: nextStatus,
+            current_round: roundNum
+          })
+          .eq('id', match.id)
+          .select()
+          .single();
+
+        if (fbRes.data) {
+          data = { ...fbRes.data, round_started_at: nowIso, question_start_time: nowIso };
+          error = null;
+        }
+      }
+
       if (!error && data) {
         setMatch(data);
         if (isStarting) {
-          const roundKey = `${data.current_round}_${data.round_started_at}`;
+          const roundKey = `${data.current_round}_${data.round_started_at || nowIso}`;
           lastCountdownRoundRef.current = roundKey;
           triggerSynchronizedCountdown();
         }
