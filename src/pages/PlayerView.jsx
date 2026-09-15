@@ -21,6 +21,8 @@ export default function PlayerView() {
   const [isRepeatPlayer, setIsRepeatPlayer] = useState(false);
   const [overridePin, setOverridePin] = useState('');
   const [showOverrideInput, setShowOverrideInput] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   // Match & Gameplay State
   const [match, setMatch] = useState(null);
@@ -121,9 +123,41 @@ export default function PlayerView() {
 
   // 2. Fetch Match by Room Code & Re-hydrate player
   useEffect(() => {
-    if (!roomCodeParam) return;
-    fetchMatchByCode(roomCodeParam);
+    if (roomCodeParam) {
+      fetchMatchByCode(roomCodeParam);
+    } else {
+      fetchLatestActiveMatch();
+    }
   }, [roomCodeParam, deviceToken]);
+
+  const fetchLatestActiveMatch = async () => {
+    try {
+      const { data } = await supabase
+        .from('matches')
+        .select('*')
+        .in('status', ['lobby', 'round1', 'round1_results', 'round2', 'round2_results', 'round3', 'round3_results'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (data && data.length > 0) {
+        const m = data[0];
+        setMatch(m);
+
+        if (deviceToken) {
+          const { data: existingPlayer } = await supabase
+            .from('match_players')
+            .select('*')
+            .eq('match_id', m.id)
+            .eq('device_token', deviceToken)
+            .single();
+
+          if (existingPlayer) setPlayer(existingPlayer);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching latest active match:', err);
+    }
+  };
 
   const fetchMatchByCode = async (code) => {
     let { data } = await supabase
@@ -423,14 +457,50 @@ export default function PlayerView() {
   const handleJoinGame = async (e) => {
     e.preventDefault();
     const cleanName = nameInput.trim();
-    if (!cleanName || !match) return;
+    if (!cleanName || isJoining) return;
+
+    setIsJoining(true);
+    setJoinError('');
 
     try {
+      let targetMatch = match;
+      if (!targetMatch) {
+        if (roomCodeParam) {
+          const { data } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('room_code', roomCodeParam.toUpperCase())
+            .single();
+          if (data) targetMatch = data;
+        }
+
+        if (!targetMatch) {
+          const { data } = await supabase
+            .from('matches')
+            .select('*')
+            .in('status', ['lobby', 'round1', 'round1_results', 'round2', 'round2_results', 'round3', 'round3_results'])
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (data && data.length > 0) {
+            targetMatch = data[0];
+          }
+        }
+      }
+
+      if (!targetMatch) {
+        setJoinError('No active match found. Please ask the host to start a match on stage!');
+        setIsJoining(false);
+        return;
+      }
+
+      setMatch(targetMatch);
+
       let { data, error } = await supabase
         .from('match_players')
         .insert([
           {
-            match_id: match.id,
+            match_id: targetMatch.id,
             display_name: cleanName,
             nickname: cleanName,
             device_token: deviceToken
@@ -444,7 +514,7 @@ export default function PlayerView() {
           .from('match_players')
           .insert([
             {
-              match_id: match.id,
+              match_id: targetMatch.id,
               nickname: cleanName,
               device_token: deviceToken
             }
@@ -462,15 +532,22 @@ export default function PlayerView() {
         const { data: existingPlayer } = await supabase
           .from('match_players')
           .select('*')
-          .eq('match_id', match.id)
+          .eq('match_id', targetMatch.id)
           .eq('device_token', deviceToken)
           .single();
-        if (existingPlayer) setPlayer(existingPlayer);
+        if (existingPlayer) {
+          setPlayer(existingPlayer);
+        } else {
+          setJoinError('Error joining game. Please try again.');
+        }
       } else if (data) {
         setPlayer(data);
       }
     } catch (err) {
       console.error('Join error:', err);
+      setJoinError('Connection error. Please try again.');
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -492,20 +569,6 @@ export default function PlayerView() {
       console.error('Error marking player left:', err);
     }
   };
-
-  if (!roomCodeParam) {
-    return (
-      <div style={playerContainerStyle}>
-        <div className="card-light" style={{ textAlign: 'center' }}>
-          <ShieldAlert size={48} color="#FF7675" style={{ margin: '0 auto 1rem' }} />
-          <h2>QR Code Required</h2>
-          <p style={{ color: '#636E72', marginTop: '0.5rem' }}>
-            Please scan the live QR code on the arena projector screen to join!
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (isRepeatPlayer) {
     return (
@@ -580,12 +643,17 @@ export default function PlayerView() {
 
               <button
                 type="submit"
-                disabled={!isNameValid}
-                className={`btn btn-green ${!isNameValid ? 'btn-disabled' : ''}`}
+                disabled={!isNameValid || isJoining}
+                className={`btn btn-green ${(!isNameValid || isJoining) ? 'btn-disabled' : ''}`}
                 style={{ width: '100%', fontSize: '1.25rem', padding: '1rem' }}
               >
-                ENTER ARENA
+                {isJoining ? 'JOINING ARENA...' : 'ENTER ARENA'}
               </button>
+              {joinError && (
+                <p style={{ color: '#FF7675', fontSize: '0.85rem', marginTop: '0.75rem', fontWeight: 600, textAlign: 'center' }}>
+                  {joinError}
+                </p>
+              )}
             </form>
           </div>
         </div>
