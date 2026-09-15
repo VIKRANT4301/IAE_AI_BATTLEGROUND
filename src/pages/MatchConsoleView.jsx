@@ -569,7 +569,7 @@ export default function MatchConsoleView() {
 
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('matches')
         .insert([
           {
@@ -580,6 +580,26 @@ export default function MatchConsoleView() {
         ])
         .select()
         .single();
+
+      if (error) {
+        console.warn('Primary insert failed, attempting fallback insert:', error.message);
+        const fallbackRes = await supabase
+          .from('matches')
+          .insert([
+            {
+              access_code: roomCode,
+              status: 'lobby',
+              current_round: 0
+            }
+          ])
+          .select()
+          .single();
+
+        if (fallbackRes.data) {
+          data = { ...fallbackRes.data, room_code: fallbackRes.data.access_code || roomCode };
+          error = null;
+        }
+      }
 
       if (!error && data) {
         setMatch(data);

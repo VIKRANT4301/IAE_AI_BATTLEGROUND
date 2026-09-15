@@ -128,11 +128,22 @@ export default function PlayerView() {
   }, [roomCodeParam, deviceToken]);
 
   const fetchMatchByCode = async (code) => {
-    const { data } = await supabase
+    let { data } = await supabase
       .from('matches')
       .select('*')
       .eq('room_code', code.toUpperCase())
       .single();
+
+    if (!data) {
+      const fallbackRes = await supabase
+        .from('matches')
+        .select('*')
+        .eq('access_code', code.toUpperCase())
+        .single();
+      if (fallbackRes.data) {
+        data = { ...fallbackRes.data, room_code: fallbackRes.data.access_code || code.toUpperCase() };
+      }
+    }
 
     if (data) {
       setMatch(data);
@@ -417,7 +428,7 @@ export default function PlayerView() {
     if (!cleanName || !match) return;
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('match_players')
         .insert([
           {
@@ -428,6 +439,25 @@ export default function PlayerView() {
         ])
         .select()
         .single();
+
+      if (error) {
+        const fallbackRes = await supabase
+          .from('match_players')
+          .insert([
+            {
+              match_id: match.id,
+              nickname: cleanName,
+              device_token: deviceToken
+            }
+          ])
+          .select()
+          .single();
+
+        if (fallbackRes.data) {
+          data = { ...fallbackRes.data, display_name: fallbackRes.data.nickname || cleanName };
+          error = null;
+        }
+      }
 
       if (error) {
         const { data: existingPlayer } = await supabase
