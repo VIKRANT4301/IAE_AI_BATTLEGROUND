@@ -258,10 +258,21 @@ CREATE TABLE IF NOT EXISTS match_answers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Supabase Realtime for instant synchronization
-ALTER PUBLICATION supabase_realtime ADD TABLE matches;
-ALTER PUBLICATION supabase_realtime ADD TABLE match_players;
-ALTER PUBLICATION supabase_realtime ADD TABLE match_answers;
+-- Enable Supabase Realtime safely for instant synchronization
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'matches') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE matches;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_players') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE match_players;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'match_answers') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE match_answers;
+  END IF;
+END $$;
 ```
 
 ---
