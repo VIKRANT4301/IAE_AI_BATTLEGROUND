@@ -31,7 +31,7 @@ export const syncServerClock = async () => {
     const supabaseKey = isValidKey(envKey) ? envKey : defaultKey;
 
     const start = Date.now();
-    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/questions?select=id&limit=1`, {
       method: 'HEAD',
       headers: {
         apikey: supabaseKey,
